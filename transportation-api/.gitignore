@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Environments
+.env
+
+# Logs
+logs/*.log
+
+# Caches / OS
+.DS_Store
+*.sqlite
+
+# Archived leftovers from prior tasks
+.archive-prior-task/

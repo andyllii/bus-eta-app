@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='utf-8'?>
+<list>
+  <message>
+    <INCIDENT_NUMBER>IN-26-04922</INCIDENT_NUMBER>
+    <INCIDENT_HEADING_EN>Road Incident</INCIDENT_HEADING_EN>
+    <INCIDENT_HEADING_CN>道路事故</INCIDENT_HEADING_CN>
+    <INCIDENT_DETAIL_EN>Emergency repair of road surface</INCIDENT_DETAIL_EN>
+    <INCIDENT_DETAIL_CN>緊急路面維修</INCIDENT_DETAIL_CN>
+    <LOCATION_EN>Argyle Street</LOCATION_EN>
+    <LOCATION_CN>亞皆老街</LOCATION_CN>
+    <DISTRICT_EN />
+    <DISTRICT_CN />
+    <DIRECTION_EN>Tai Kok Tsui</DIRECTION_EN>
+    <DIRECTION_CN>大角咀</DIRECTION_CN>
+    <ANNOUNCEMENT_DATE>2026-07-11T01:15:00</ANNOUNCEMENT_DATE>
+    <INCIDENT_STATUS_EN>NEW</INCIDENT_STATUS_EN>
+    <INCIDENT_STATUS_CN>最新情況</INCIDENT_STATUS_CN>
+    <NEAR_LANDMARK_EN>Nathan Road</NEAR_LANDMARK_EN>
+    <NEAR_LANDMARK_CN>彌敦道</NEAR_LANDMARK_CN>
+    <BETWEEN_LANDMARK_EN />
+    <BETWEEN_LANDMARK_CN />
+    <ID>141812</ID>
+    <CONTENT_EN>Due to emergency repair of road surface , part of the lanes of Argyle Street (Tai Kok Tsui bound) near Nathan Road is closed to all traffic. Only remaining lanes are available to motorists. </CONTENT_EN>
+    <CONTENT_CN>因緊急路面維修，亞皆老街(往大角咀方向)近彌敦道的部份行車線現已封閉。 駕駛人士只可使用餘下行車線行車。</CONTENT_CN>
+    <LATITUDE />
+    <LONGITUDE />
+  </message>
+</list>

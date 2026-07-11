@@ -1,0 +1,35 @@
+{
+  "name": "transportation-web-app",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Mobile-first web app for the Hong Kong bus ETA service (Vite + React + Tailwind).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "test:api": "tsx scripts/api-contract.test.mjs",
+    "test:render": "node scripts/render-check.mjs",
+    "test:search": "node scripts/search-flow.test.mjs",
+    "test:ux": "node scripts/mobile-ux-check.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "playwright": "^1.61.1",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "tsx": "^4.23.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.8"
+  }
+}

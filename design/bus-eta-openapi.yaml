@@ -1,0 +1,1107 @@
+openapi: 3.0.3
+info:
+  title: Hong Kong Transportation Aggregation API
+  version: 1.0.0
+  description: |
+    Aggregated bus-ETA + weather + traffic-incident API for the Hong Kong
+    transportation mobile client.
+
+    ## Backend service
+    A FastAPI service (package `transportation-api`) fans out, concurrently, to
+    four public Hong Kong open-data feeds, normalises them into the canonical
+    models below, and serves them through the endpoints in this document:
+
+    | Concern    | Provider / feed                          | Client module          |
+    |------------|------------------------------------------|------------------------|
+    | Bus ETA    | KMB `data.etabus.gov.hk` stop-eta        | `src/clients/kmb.py`   |
+    | Bus ETA    | Citybus/NWFB `rt.data.gov.hk` eta        | `src/clients/citybus.py` |
+    | Weather    | HKO OpenData `weatherAPI`                | `src/clients/hko.py`   |
+    | Incidents  | HK Transport Department traffic-news XML | `src/clients/td.py`    |
+
+    Operator/stop-id namespaces are disjoint and decide routing:
+      * KMB      — 16-char hex ids (e.g. `946C74E30100FE80`)
+      * Citybus  — 6-digit numeric ids (e.g. `001027`)
+
+    ## Canonical base path
+    Every versioned endpoint in this contract lives under `/api/v1`. This is the
+    base path the mobile frontend already consumes (`GET /api/v1/eta`,
+    `GET /api/v1/search`).
+
+    ### Known implementation deviations (reconcile on backend)
+    The current code was built incrementally and split across two prefixes.
+    These routes already exist but are served at the legacy paths listed here;
+    they SHOULD be re-mounted under `/api/v1` to match this contract:
+
+      * `GET /v1/bus-stops/{stopId}`   -> canonical `GET /api/v1/bus-stops/{stopId}`
+      * `GET /v1/weather`              -> canonical `GET /api/v1/weather`
+      * `GET /v1/weather/warnings`     -> canonical `GET /api/v1/weather/warnings`
+      * `GET /v1/incidents`            -> canonical `GET /api/v1/incidents`
+      * `GET /api/v1/weather/hk`       -> alias of `GET /api/v1/weather`
+      * `GET /api/v1/weather/hk/warnings` -> alias of `GET /api/v1/weather/warnings`
+      * `GET /eta` (flat legacy shape) -> retained for backward-compat,
+        marked `deprecated`; new clients MUST use `GET /api/v1/eta`.
+
+    ## Wire format conventions
+      * All JSON keys are **snake_case** on the wire. The web client
+        (`web-app/src/services/api.ts`) deep-maps snake_case -> camelCase; the
+        React Native client is expected to do the same.
+      * All human-readable text is a **multilingual object** `{ en, tc, sc }`
+        (`tc` = Traditional Chinese, the HK default; `sc` = Simplified; `en` =
+        English). A field may carry only some languages when a source lacks
+        the others.
+      * Timestamps are **ISO-8601 date-time** strings. The backend emits UTC
+        (suffix `Z`); provider feeds are HKT (+08:00) and are normalised.
+      * Coordinates are WGS84 `GeoPoint { lat, lon }`.
+      * Aggregation is **fail-soft**: if a secondary provider (weather or
+        incidents) fails while ETAs are present, the endpoint returns HTTP `200`
+        with `degraded: true` and the partial payload. A `degrade=false` query
+        turns that into a `500`.
+      * If NO operator returns an ETA for the requested route/stop, the
+        aggregation endpoint returns `404 RESOURCE_NOT_FOUND`.
+      * The `status` field on `ETA` (`live`/`scheduled`) is **derived
+        client-side** from the resolved `eta`/remark; it is NOT emitted by the
+        backend and is intentionally absent from this contract's `ETA` schema.
+
+    This file is the machine-readable companion to `DESIGN.md`.
+  contact:
+    name: backend-developer
+  license:
+    name: Proprietary
+servers:
+  - url: http://localhost:8000
+    description: Local development server (uvicorn app:app --port 8000)
+  - url: https://api.example.com
+    description: Production (replace with the real host)
+tags:
+  - name: Aggregation
+    description: Combined bus ETA + weather + traffic data (primary mobile endpoints)
+  - name: BusStops
+    description: Bus stop resources
+  - name: Weather
+    description: HKO weather, warnings, forecast
+  - name: Incidents
+    description: Transport Department road traffic incidents
+  - name: Search
+    description: Autocomplete for the Search screen (stops + routes)
+  - name: health
+    description: Liveness / meta
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Liveness/readiness probe
+      description: Returns OK if the server process is up. No upstream calls.
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /:
+    get:
+      operationId: root
+      tags: [health]
+      summary: Service meta descriptor
+      responses:
+        "200":
+          description: Name, version, and discovery links.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  app_name:
+                    type: string
+                  version:
+                    type: string
+                  docs:
+                    type: string
+                    description: Swagger UI path.
+                  health:
+                    type: string
+                  openapi:
+                    type: string
+                    description: Path to this contract document.
+
+  /api/v1/eta:
+    get:
+      operationId: getEtaAggregate
+      tags: [Aggregation]
+      summary: >-
+        Combined bus ETA + weather + traffic incidents for a route & stop
+        (PRIMARY aggregation endpoint used by the mobile frontend)
+      description: |
+        Returns a single object containing the upcoming arrivals for a
+        `(route, stop)` pair, the current HKO weather + active warnings, and
+        any Transport Department traffic incidents relevant to that
+        route/stop (each tagged with a server-computed `relevance` and sorted
+        high-first). This is the endpoint the mobile "results" screen calls.
+      parameters:
+        - $ref: "#/components/parameters/RouteQuery"
+        - $ref: "#/components/parameters/StopQuery"
+        - $ref: "#/components/parameters/LangQuery"
+        - $ref: "#/components/parameters/IncludeWeatherQuery"
+        - $ref: "#/components/parameters/IncludeIncidentsQuery"
+        - $ref: "#/components/parameters/DegradeQuery"
+      responses:
+        "200":
+          description: >-
+            Aggregated payload. `degraded` is true when a secondary provider
+            failed and was skipped.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EtaAggregate"
+              examples:
+                ok:
+                  $ref: "#/components/examples/EtaAggregateOk"
+        "404":
+          description: No operator returned an ETA for this route+stop.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: RESOURCE_NOT_FOUND
+                message: "No ETA data for route 1 at stop 946C74E30100FE80."
+                detail: "No operator (KMB / Citybus / NWFB) returned an ETA for this route+stop."
+        "422":
+          description: Missing required query parameter (FastAPI validation).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: >-
+            Upstream provider failed and degradation is disabled
+            (`degrade=false`), or an unexpected error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/bus-stops/{stopId}:
+    get:
+      operationId: getBusStopCombined
+      tags: [Aggregation, BusStops]
+      summary: Combined data for a bus stop (primary-by-stop view)
+      description: |
+        Returns the stop's static details plus ETAs, weather, and incidents in
+        one object. Optionally filter `etas` to a single `route`. Use this when
+        the user has selected a stop but not yet a route; if a route is known,
+        prefer `GET /api/v1/eta` for tighter relevance ranking.
+      parameters:
+        - name: stopId
+          in: path
+          required: true
+          description: Bus stop id. KMB = 16-char hex; Citybus/NWFB = 6-digit numeric.
+          schema:
+            type: string
+          example: "946C74E30100FE80"
+        - $ref: "#/components/parameters/LangQuery"
+        - name: route
+          in: query
+          required: false
+          description: Optional filter to return only ETAs for a single route.
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IncludeWeatherQuery"
+        - $ref: "#/components/parameters/IncludeIncidentsQuery"
+      responses:
+        "200":
+          description: Combined stop payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusStopCombined"
+        "404":
+          description: No operator returned a stop with this id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Upstream aggregation failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/weather:
+    get:
+      operationId: getWeather
+      tags: [Weather]
+      summary: Current Hong Kong weather, warnings, and optional forecast
+      description: |
+        Current conditions + active HKO warnings from `rhrread`/`warnsum`.
+        Attach `include_forecast=true` for the 9-day forecast. Fail-soft: a
+        missing core feed surfaces as `500 UPSTREAM_ERROR`.
+      parameters:
+        - $ref: "#/components/parameters/LangQuery"
+        - name: include_forecast
+          in: query
+          required: false
+          description: Attach the 9-day forecast to the response.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Current weather payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Weather"
+        "500":
+          description: HKO feed unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/weather/warnings:
+    get:
+      operationId: getWeatherWarnings
+      tags: [Weather]
+      summary: Active Hong Kong weather warnings only
+      parameters:
+        - $ref: "#/components/parameters/LangQuery"
+      responses:
+        "200":
+          description: Active warnings wrapper.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [warnings]
+                properties:
+                  warnings:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WeatherWarning"
+              examples:
+                none:
+                  value:
+                    warnings: []
+                one:
+                  value:
+                    warnings:
+                      - code: WHOT
+                        title:
+                          en: Very Hot Weather Warning
+                          tc: 酷熱天氣警告
+                          sc: 酷热天气警告
+                        severity: warning
+                        contents: 酷熱天氣警告現正生效。
+                        issue_time: "2026-07-10T11:30:00+08:00"
+
+  /api/v1/incidents:
+    get:
+      operationId: getIncidents
+      tags: [Incidents]
+      summary: Active traffic incidents (Transport Department, Hong Kong-wide)
+      description: |
+        Hong Kong-wide road incidents from the TD XML feed. Optional
+        `district` / `status` filters are case-insensitive substring matches
+        across all three languages. Results are cached (default 120s).
+      parameters:
+        - $ref: "#/components/parameters/LangQuery"
+        - name: district
+          in: query
+          required: false
+          description: Case-insensitive district substring filter (en/tc/sc).
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Case-insensitive status substring filter (e.g. 'new').
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Active incidents.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Incident"
+        "500":
+          description: TD feed unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/search:
+    get:
+      operationId: search
+      tags: [Search]
+      summary: Search bus routes and stops (autocomplete for the Search screen)
+      description: |
+        One call returns both matching stops and routes so the mobile UI can
+        render a single mixed results list and route the user into the
+        combined Results view with the correct `route`/`stopId` on selection.
+        Matching is server-side across all languages of the stop name, the stop
+        id, the route number, and the route's terminals. An empty `q` returns
+        the curated default set (seeds an empty search box).
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Free-text query (stop name, stop id, or route number). Empty = defaults.
+          schema:
+            type: string
+            default: ""
+        - $ref: "#/components/parameters/LangQuery"
+        - name: limit_stops
+          in: query
+          required: false
+          description: Max stop matches to return.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 50
+            default: 8
+        - name: limit_routes
+          in: query
+          required: false
+          description: Max route matches to return.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 50
+            default: 8
+      responses:
+        "200":
+          description: Unified autocomplete payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+              examples:
+                ok:
+                  $ref: "#/components/examples/SearchResponseOk"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /eta:
+    get:
+      operationId: getEtaLegacy
+      deprecated: true
+      tags: [Aggregation]
+      summary: "[LEGACY] Flat bus ETA + alerts payload (do not use for new clients)"
+      description: |
+        Deprecated flat shape consumed by the legacy React Native client.
+        New clients MUST use `GET /api/v1/eta`. Retained for backward
+        compatibility only.
+      parameters:
+        - name: route
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Bus route number, e.g. '1'.
+        - name: stop_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Bus stop id, e.g. '946C74E30100FE80'.
+      responses:
+        "200":
+          description: Legacy flattened payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EtaResponse"
+
+components:
+  parameters:
+    LangQuery:
+      name: lang
+      in: query
+      required: false
+      description: Language for text fields. One of en / tc / sc.
+      schema:
+        type: string
+        enum: [en, tc, sc]
+        default: tc
+    RouteQuery:
+      name: route
+      in: query
+      required: true
+      description: Bus route number, e.g. '1'.
+      schema:
+        type: string
+      example: "1"
+    StopQuery:
+      name: stop
+      in: query
+      required: true
+      description: Bus stop id. KMB = 16-char hex; Citybus/NWFB = 6-digit numeric.
+      schema:
+        type: string
+      example: "946C74E30100FE80"
+    IncludeWeatherQuery:
+      name: include_weather
+      in: query
+      required: false
+      description: Include the Weather block.
+      schema:
+        type: boolean
+        default: true
+    IncludeIncidentsQuery:
+      name: include_incidents
+      in: query
+      required: false
+      description: Include the Incidents block.
+      schema:
+        type: boolean
+        default: true
+    DegradeQuery:
+      name: degrade
+      in: query
+      required: false
+      description: >-
+        Fail-soft: on partial upstream failure return partial data
+        (degraded=true) instead of 500.
+      schema:
+        type: boolean
+        default: true
+
+  examples:
+    EtaAggregateOk:
+      summary: Route 1 at a KMB stop, with weather + one incident
+      value:
+        query:
+          route: "1"
+          stop_id: "946C74E30100FE80"
+          operator: KMB
+          lang: tc
+        etas:
+          - co: KMB
+            route: "1"
+            direction: O
+            service_type: 1
+            seq: 8
+            dest:
+              en: STAR FERRY
+              tc: 尖沙咀碼頭
+              sc: 尖沙咀码头
+            eta_seq: 1
+            eta: "2026-07-12T08:42:00Z"
+            minutes_remaining: 4
+            remark:
+              tc: 預定班次
+            data_timestamp: "2026-07-12T08:37:55Z"
+          - co: KMB
+            route: "1"
+            direction: O
+            service_type: 1
+            seq: 8
+            dest:
+              en: STAR FERRY
+              tc: 尖沙咀碼頭
+              sc: 尖沙咀码头
+            eta_seq: 2
+            eta: "2026-07-12T08:54:00Z"
+            minutes_remaining: 16
+            remark: null
+            data_timestamp: "2026-07-12T08:37:55Z"
+        weather:
+          temperature:
+            place: Hong Kong Observatory
+            value: 28
+            unit: C
+          description: 天色良好
+          humidity:
+            value: 84
+            unit: percent
+          icon: [63]
+          update_time: "2026-07-12T08:30:00Z"
+          warnings:
+            - code: WRAINA
+              title:
+                en: Amber Rainstorm Warning
+                tc: 黃色暴雨警告信號
+                sc: 黄色暴雨警告信号
+              severity: amber
+              contents: 黃色暴雨警告信號現正生效。
+              issue_time: "2026-07-12T07:15:00Z"
+          forecast: null
+        incidents:
+          - id: TD20260712-00123
+            heading:
+              tc: 因交通意外道路封閉
+            detail:
+              tc: 觀塘道交通意外，部分行車線封閉
+            location:
+              tc: 觀塘道
+            district:
+              tc: 觀塘
+            status:
+              tc: 生效中
+            announcement_date: "2026-07-12 08:30"
+            relevance: low
+            content:
+              tc: 觀塘道因交通意外部分行車線封閫。
+            source_id: "141824"
+            geo:
+              lat: 22.3119
+              lon: 114.2257
+        query_time: "2026-07-12T08:38:00Z"
+        degraded: false
+    SearchResponseOk:
+      summary: Autocomplete for "1"
+      value:
+        query: "1"
+        lang: tc
+        total: 2
+        stops:
+          - id: "946C74E30100FE80"
+            name:
+              en: Cheung Sha Wan Plaza
+              tc: 長沙灣廣場
+              sc: 长沙湾广场
+            address: null
+            location:
+              lat: 22.332261
+              lon: 114.187981
+            routes: ["1", "2", "6"]
+            kind: stop
+            operator: KMB
+        routes:
+          - id: "1"
+            operator: KMB
+            kind: route
+            name: null
+            destinations:
+              O:
+                en: STAR FERRY
+                tc: 尖沙咀碼頭
+                sc: 尖沙咀码头
+              I:
+                en: CHEUNG SHA WAN
+                tc: 長沙灣
+                sc: 长沙湾
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: RESOURCE_NOT_FOUND
+        message:
+          type: string
+        detail:
+          type: string
+          nullable: true
+
+    MultilingualText:
+      type: object
+      description: Human-readable text in up to three languages.
+      properties:
+        en:
+          type: string
+          nullable: true
+        tc:
+          type: string
+          nullable: true
+        sc:
+          type: string
+          nullable: true
+
+    GeoPoint:
+      type: object
+      required: [lat, lon]
+      properties:
+        lat:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        lon:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+
+    BusStop:
+      type: object
+      required: [id, name, location]
+      properties:
+        id:
+          type: string
+          description: KMB stop ID (16-char hex) or Citybus 6-digit numeric.
+          example: "946C74E30100FE80"
+        name:
+          $ref: "#/components/schemas/MultilingualText"
+        location:
+          $ref: "#/components/schemas/GeoPoint"
+        address:
+          $ref: "#/components/schemas/MultilingualText"
+          nullable: true
+        routes:
+          type: array
+          items:
+            type: string
+          description: Route numbers serving this stop.
+          example: ["1", "2", "6"]
+        data_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+
+    Route:
+      type: object
+      required: [id, operator, destinations]
+      properties:
+        id:
+          type: string
+          description: Route number (uppercase).
+          example: "1"
+        name:
+          $ref: "#/components/schemas/MultilingualText"
+          nullable: true
+        operator:
+          type: string
+          example: KMB
+        service_type:
+          type: integer
+          default: 1
+          description: KMB service type (1=normal, 2=express, ...).
+        directions:
+          type: array
+          items:
+            type: string
+          example: ["O", "I"]
+        destinations:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/MultilingualText"
+          description: "Terminal names per direction, e.g. { \"O\": ..., \"I\": ... }."
+        stops:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Ordered stop IDs for the route (optional expansion).
+
+    ETA:
+      type: object
+      required: [co, route, direction, seq, dest, eta_seq]
+      description: |
+        Predicted arrival of a route at a stop. NOTE: the `status`
+        (`live`/`scheduled`) field used by clients is DERIVED client-side and
+        is intentionally not emitted by the backend.
+      properties:
+        co:
+          type: string
+          example: KMB
+        route:
+          type: string
+          example: "1"
+        direction:
+          type: string
+          description: "O = outbound, I = inbound."
+          example: "O"
+        service_type:
+          type: integer
+          default: 1
+        seq:
+          type: integer
+          description: Stop sequence number on the route.
+        dest:
+          $ref: "#/components/schemas/MultilingualText"
+        eta_seq:
+          type: integer
+          description: Ordering index among upcoming arrivals.
+        eta:
+          type: string
+          format: date-time
+          nullable: true
+          description: Predicted arrival timestamp (UTC). null = no prediction.
+        minutes_remaining:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Minutes until arrival, computed server-side (>=0). null when eta is null.
+        remark:
+          $ref: "#/components/schemas/MultilingualText"
+          nullable: true
+          description: Human remark, e.g. 'Scheduled', 'KMB staff on board'.
+        data_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the operator last published this prediction.
+
+    WeatherWarning:
+      type: object
+      required: [code, title, severity]
+      properties:
+        code:
+          type: string
+          description: HKO warning code, e.g. WRAINA.
+          example: WRAINA
+        title:
+          $ref: "#/components/schemas/MultilingualText"
+        severity:
+          type: string
+          enum: [none, amber, red, black, warning]
+          example: amber
+        contents:
+          type: string
+          nullable: true
+          description: Full warning text issued by HKO.
+        issue_time:
+          type: string
+          format: date-time
+          nullable: true
+
+    ForecastDay:
+      type: object
+      description: One day from the HKO 9-day forecast (optional enrichment).
+      properties:
+        date:
+          type: string
+          nullable: true
+          description: Forecast date (YYYYMMDD).
+        week:
+          type: string
+          nullable: true
+          description: Day of week, localised.
+        weather:
+          type: string
+          nullable: true
+        max_temp:
+          type: number
+          nullable: true
+        min_temp:
+          type: number
+          nullable: true
+
+    Weather:
+      type: object
+      properties:
+        temperature:
+          type: object
+          nullable: true
+          properties:
+            place:
+              type: string
+            value:
+              type: number
+            unit:
+              type: string
+          description: Current air temperature.
+        description:
+          type: string
+          nullable: true
+          description: >-
+            Human-readable conditions resolved to `lang` (derived from HKO icon
+            codes), e.g. 'Showers' / '多雲' / '多云'.
+        humidity:
+          type: object
+          nullable: true
+          properties:
+            value:
+              type: number
+            unit:
+              type: string
+          description: Relative humidity.
+        icon:
+          type: array
+          items:
+            type: integer
+          description: HKO weather icon codes.
+        update_time:
+          type: string
+          format: date-time
+          nullable: true
+          description: Feed update time.
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeatherWarning"
+          description: Active warnings.
+        forecast:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ForecastDay"
+          description: Short forecast (optional).
+
+    Incident:
+      type: object
+      required: [id, heading, location, status]
+      properties:
+        id:
+          type: string
+          description: TD incident number.
+          example: "TD20260710-00123"
+        heading:
+          $ref: "#/components/schemas/MultilingualText"
+        detail:
+          $ref: "#/components/schemas/MultilingualText"
+          nullable: true
+        location:
+          $ref: "#/components/schemas/MultilingualText"
+        district:
+          $ref: "#/components/schemas/MultilingualText"
+          nullable: true
+        direction:
+          $ref: "#/components/schemas/MultilingualText"
+          nullable: true
+        road_type:
+          $ref: "#/components/schemas/MultilingualText"
+          nullable: true
+        near_landmark:
+          $ref: "#/components/schemas/MultilingualText"
+          nullable: true
+        status:
+          $ref: "#/components/schemas/MultilingualText"
+          description: INCIDENT_STATUS_* textual value, e.g. ACTIVE / 生效中.
+        announcement_date:
+          type: string
+          nullable: true
+          description: e.g. '2026-07-10 08:30'.
+          example: "2026-07-10 08:30"
+        relevance:
+          type: string
+          nullable: true
+          enum: [high, medium, low, none]
+          description: >-
+            Server-computed relevance to the queried route/stop; set only on
+            combined endpoints.
+        content:
+          $ref: "#/components/schemas/MultilingualText"
+          nullable: true
+          description: Full incident narrative / impact text (TD CONTENT_* field).
+        source_id:
+          type: string
+          nullable: true
+          description: Numeric message id assigned by the TD feed (element <ID>).
+        geo:
+          $ref: "#/components/schemas/GeoPoint"
+          nullable: true
+          description: WGS84 coordinate when the feed provides LATITUDE/LONGITUDE.
+
+    EtaQuery:
+      type: object
+      required: [route, stop_id, lang]
+      properties:
+        route:
+          type: string
+          description: Route number that was requested.
+        stop_id:
+          type: string
+          description: Stop id that was requested.
+        operator:
+          type: string
+          nullable: true
+          description: Resolved operator (KMB / CTB / NWFB), or null if unknown.
+        lang:
+          type: string
+          default: tc
+          description: Language used for the response text.
+
+    EtaAggregate:
+      type: object
+      required: [query, etas, query_time, degraded]
+      description: >-
+        PRIMARY aggregation response for GET /api/v1/eta. One object the
+        mobile results screen renders.
+      properties:
+        query:
+          $ref: "#/components/schemas/EtaQuery"
+        etas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ETA"
+          description: Upcoming arrivals for the route at the stop.
+        weather:
+          $ref: "#/components/schemas/Weather"
+          nullable: true
+          description: Current HKO weather + active warnings (null if degraded/omitted).
+        incidents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Incident"
+          description: >-
+            Traffic incidents relevant to the route/stop, each tagged with a
+            server-computed `relevance` (high/medium/low), sorted high-first.
+        query_time:
+          type: string
+          format: date-time
+          description: Server time the response was assembled (UTC).
+        degraded:
+          type: boolean
+          default: false
+          description: >-
+            True when one or more providers failed and were skipped (partial
+            data returned). Mirrors the fail-soft aggregation policy.
+
+    BusStopCombined:
+      type: object
+      required: [stop, etas, query_time]
+      description: Combined response for GET /api/v1/bus-stops/{stopId}.
+      properties:
+        stop:
+          $ref: "#/components/schemas/BusStop"
+        etas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ETA"
+        weather:
+          $ref: "#/components/schemas/Weather"
+          nullable: true
+        incidents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Incident"
+        query_time:
+          type: string
+          format: date-time
+          description: Server time the response was assembled (UTC).
+
+    SearchStop:
+      type: object
+      required: [id, name, kind]
+      properties:
+        id:
+          type: string
+          example: "946C74E30100FE80"
+        name:
+          $ref: "#/components/schemas/MultilingualText"
+        address:
+          $ref: "#/components/schemas/MultilingualText"
+          nullable: true
+        location:
+          $ref: "#/components/schemas/GeoPoint"
+          nullable: true
+        routes:
+          type: array
+          items:
+            type: string
+          description: Route numbers serving this stop.
+        kind:
+          type: string
+          enum: [stop]
+          description: Discriminator used by the UI.
+        operator:
+          type: string
+          nullable: true
+          description: Resolved operator code (KMB/CTB/NWFB) or null when unknown.
+
+    SearchRoute:
+      type: object
+      required: [id, operator, kind]
+      properties:
+        id:
+          type: string
+          example: "1"
+        operator:
+          type: string
+          example: KMB
+        kind:
+          type: string
+          enum: [route]
+          description: Discriminator used by the UI.
+        name:
+          $ref: "#/components/schemas/MultilingualText"
+          nullable: true
+        destinations:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/MultilingualText"
+          description: "Terminal names per direction, e.g. { \"O\": ..., \"I\": ... }."
+
+    SearchResponse:
+      type: object
+      required: [query, lang, total, stops, routes]
+      description: Unified autocomplete payload for the Search screen.
+      properties:
+        query:
+          type: string
+          description: Echo of the normalised query string.
+        lang:
+          type: string
+          default: tc
+        total:
+          type: integer
+          description: Total number of matches (stops + routes).
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchStop"
+        routes:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchRoute"
+
+    HealthStatus:
+      type: object
+      required: [status, app_name, app_version, timestamp]
+      properties:
+        status:
+          type: string
+          example: ok
+        app_name:
+          type: string
+        app_version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    # ---- Legacy / deprecated models (GET /eta) ----
+    EtaItem:
+      type: object
+      required: [route, dest]
+      properties:
+        route:
+          type: string
+        dest:
+          type: string
+        minutes_remaining:
+          type: integer
+          nullable: true
+        eta_time:
+          type: string
+          nullable: true
+        remark:
+          type: string
+
+    EtaResponse:
+      type: object
+      required: [query_time, bus_eta]
+      properties:
+        query_time:
+          type: string
+          format: date-time
+        bus_eta:
+          type: array
+          items:
+            $ref: "#/components/schemas/EtaItem"
+        weather_warnings:
+          type: array
+          items:
+            type: string
+        traffic_incidents:
+          type: array
+          items:
+            type: object
+            additionalProperties: true

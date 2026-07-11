@@ -1,0 +1,38 @@
+{
+  "name": "transportation-app",
+  "version": "1.0.0",
+  "description": "Mobile-first frontend for the Hong Kong bus ETA service (React Native + Expo).",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc -p scripts/tsconfig.test.json && node scripts/contract_test.cjs",
+    "test:live": "tsc -p scripts/tsconfig.test.json && node scripts/live_contract_test.cjs",
+    "test:search": "tsc -p scripts/tsconfig.test.json && node scripts/search_bus_test.cjs",
+    "build:web": "expo export --platform web --output-dir dist"
+  },
+  "private": true,
+  "dependencies": {
+    "@react-navigation/native": "^7.3.8",
+    "@react-navigation/native-stack": "^7.17.10",
+    "babel-preset-expo": "~57.0.0",
+    "expo": "^57.0.4",
+    "expo-status-bar": "~57.0.0",
+    "lighthouse": "^12.8.2",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-native": "^0.86.0",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "4.25.2",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.0",
+    "babel-plugin-module-resolver": "^5.0.3",
+    "typescript": "~5.6.3"
+  }
+}

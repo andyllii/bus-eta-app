@@ -1,0 +1,16 @@
+services:
+  buseta:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bus-eta-app:latest
+    ports:
+      - "8000:8000"   # FastAPI API + /docs + /openapi.json
+      - "4173:4173"   # Web PWA (Nginx)
+    environment:
+      # Set USE_MOCK_DATA=1 for a fully offline / demo container.
+      USE_MOCK_DATA: "0"
+      PORT: "8000"
+      # Optional keyed-tier auth / feed overrides (see transportation-api/.env.example)
+      # KMB_API_KEY: ""
+    restart: unless-stopped

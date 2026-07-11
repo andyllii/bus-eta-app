@@ -1,0 +1,7 @@
+node_modules/
+.expo/
+dist/
+.out-test/
+npm-debug.*
+*.log
+.env

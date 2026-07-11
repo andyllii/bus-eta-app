@@ -1,0 +1,30 @@
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.trash/
+**/.archive-prior-task/
+**/logs/
+# NOTE: do NOT add `**/_*.py` here — it would exclude __init__.py and break
+# the backend import at build time (see PACKAGING.md).
+
+# Node
+**/node_modules/
+**/dist/
+**/.expo/
+**/.pw-browsers/
+**/.lh/
+**/web-build/
+**/.out-test/
+**/.venv-brotli/
+**/.venv-pw/
+
+# Env / secrets
+**/.env
+**/.env.local
+
+# OS / editors
+.DS_Store
+**/*.log

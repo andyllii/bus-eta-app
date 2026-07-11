@@ -1,0 +1,27 @@
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.trash/
+**/logs/
+**/*.log
+
+# Node
+**/node_modules/
+**/dist/
+**/.expo/
+**/.pw-browsers/
+**/web-build/
+
+# Env / secrets — NEVER commit real .env files
+**/.env
+**/.env.local
+**/.env.*
+!.env.example
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Bus ETA",
+    "slug": "transportation-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "buseta",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.transportationapp"
+    },
+    "android": {
+      "package": "com.example.transportationapp",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": []
+  }
+}

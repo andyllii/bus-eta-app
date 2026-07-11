@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Bus ETA — User Flow</title>
+<style>
+  :root { --brand:#1d4ed8; --brand-dark:#1e3a8a; --gray:#e5e7eb; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#f3f4f6; font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#111827; padding:40px; }
+  .sheet { max-width:1100px; margin:0 auto; background:#fff; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.08); padding:40px 48px; }
+  h1 { font-size:24px; margin:0 0 4px; }
+  .sub { color:#6b7280; font-size:14px; margin-bottom:28px; }
+  svg { display:block; width:100%; height:auto; }
+  .legend { display:flex; gap:22px; flex-wrap:wrap; margin-top:24px; font-size:13px; color:#374151; }
+  .legend span { display:inline-flex; align-items:center; gap:7px; }
+  .legend i { width:14px; height:14px; border-radius:4px; display:inline-block; }
+  .note { margin-top:26px; padding:16px 18px; background:#f9fafb; border:1px solid #eef2f7; border-radius:12px; font-size:13px; color:#4b5563; line-height:1.6; }
+  .note b { color:#111827; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1>Bus ETA — Mobile User Flow</h1>
+  <div class="sub">Primary path (single thumb): open → search → arrivals → back. Alerts surface inline on the arrivals screen. Every control ≥ 44&nbsp;px; content capped at 480&nbsp;px.</div>
+
+  <svg viewBox="0 0 1000 760" font-family="system-ui, sans-serif">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#9ca3af"/>
+      </marker>
+      <marker id="arrowB" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1d4ed8"/>
+      </marker>
+      <style>
+        .box { fill:#fff; stroke:#d1d5db; stroke-width:1.5; rx:12; }
+        .boxBrand { fill:#1d4ed8; }
+        .lbl { fill:#111827; font-size:15px; font-weight:600; }
+        .sm  { fill:#6b7280; font-size:12px; }
+        .cap { fill:#6b7280; font-size:11px; }
+        .edge { stroke:#9ca3af; stroke-width:1.8; fill:none; }
+        .edgeB { stroke:#1d4ed8; stroke-width:2; fill:none; }
+        .pill { fill:#eff6ff; stroke:#bfdbfe; }
+      </style>
+    </defs>
+
+    <!-- ===== SCREEN 1: SEARCH ===== -->
+    <g>
+      <rect class="box" x="40" y="40" width="250" height="300" rx="14"/>
+      <rect class="boxBrand" x="40" y="40" width="250" height="34" rx="14"/>
+      <rect class="boxBrand" x="40" y="62" width="250" height="12"/>
+      <text x="165" y="62" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">① Search  ·  搜尋</text>
+      <rect x="56" y="96" width="218" height="38" rx="10" fill="#f3f4f6" stroke="#d1d5db"/>
+      <text x="66" y="120" fill="#9ca3af" font-size="12">Search routes or stops…</text>
+      <rect x="56" y="146" width="70" height="26" rx="13" fill="#eff6ff"/>
+      <text x="91" y="163" text-anchor="middle" fill="#1d4ed8" font-size="11" font-weight="600">路線 1</text>
+      <rect x="134" y="146" width="72" height="26" rx="13" fill="#eff6ff"/>
+      <text x="170" y="163" text-anchor="middle" fill="#1d4ed8" font-size="11" font-weight="600">路線 10</text>
+      <rect x="214" y="146" width="60" height="26" rx="13" fill="#eff6ff"/>
+      <text x="244" y="163" text-anchor="middle" fill="#1d4ed8" font-size="11" font-weight="600">路線 113</text>
+      <rect x="56" y="186" width="218" height="40" rx="10" fill="#fff" stroke="#e5e7eb"/>
+      <text x="68" y="204" fill="#111827" font-size="12" font-weight="600">Route 1</text>
+      <text x="68" y="219" fill="#9ca3af" font-size="10">Central (Macao Ferry)</text>
+      <rect x="224" y="194" width="40" height="22" rx="5" fill="#1d4ed8"/>
+      <text x="244" y="209" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">ROUTE</text>
+      <rect x="56" y="234" width="218" height="40" rx="10" fill="#fff" stroke="#e5e7eb"/>
+      <text x="68" y="252" fill="#111827" font-size="12" font-weight="600">長沙灣廣場</text>
+      <text x="68" y="267" fill="#9ca3af" font-size="10">1 · 2 · 6</text>
+      <rect x="224" y="242" width="40" height="22" rx="5" fill="#e5e7eb"/>
+      <text x="244" y="257" text-anchor="middle" fill="#4b5563" font-size="9" font-weight="700">STOP</text>
+      <text x="56" y="306" fill="#9ca3af" font-size="10">Select route or stop →</text>
+    </g>
+
+    <!-- ===== SCREEN 2: ARRIVALS (ETA LIST) ===== -->
+    <g>
+      <rect class="box" x="375" y="40" width="250" height="300" rx="14"/>
+      <rect class="boxBrand" x="375" y="40" width="250" height="34" rx="14"/>
+      <rect class="boxBrand" x="375" y="62" width="250" height="12"/>
+      <text x="500" y="62" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">② Arrivals  ·  到站時間</text>
+      <rect x="391" y="92" width="218" height="56" rx="10" fill="#1d4ed8"/>
+      <text x="403" y="116" fill="#fff" font-size="13" font-weight="700">Route 1 · KMB</text>
+      <text x="403" y="135" fill="#dbeafe" font-size="11">Central (Macao Ferry)</text>
+      <rect x="391" y="160" width="218" height="38" rx="10" fill="#fff" stroke="#e5e7eb"/>
+      <text x="403" y="184" fill="#111827" font-size="12" font-weight="600">Central (Macao Ferry)</text>
+      <text x="586" y="184" text-anchor="end" fill="#1d4ed8" font-size="12" font-weight="700">Due ▍</text>
+      <rect x="391" y="206" width="218" height="38" rx="10" fill="#fff" stroke="#e5e7eb"/>
+      <text x="403" y="230" fill="#111827" font-size="12" font-weight="600">Central (Macao Ferry)</text>
+      <text x="586" y="230" text-anchor="end" fill="#1d4ed8" font-size="12" font-weight="700">4 min ▍</text>
+      <rect x="391" y="252" width="218" height="38" rx="10" fill="#fff" stroke="#e5e7eb"/>
+      <text x="403" y="276" fill="#111827" font-size="12" font-weight="600">Central (Macao Ferry)</text>
+      <text x="586" y="276" text-anchor="end" fill="#1d4ed8" font-size="12" font-weight="700">11 min ▍</text>
+      <rect x="391" y="300" width="218" height="28" rx="8" fill="#1d4ed8"/>
+      <text x="500" y="318" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">← Back to search</text>
+    </g>
+
+    <!-- ===== SCREEN 3: ALERTS (integrated) ===== -->
+    <g>
+      <rect class="box" x="710" y="40" width="250" height="300" rx="14"/>
+      <rect class="boxBrand" x="710" y="40" width="250" height="34" rx="14"/>
+      <rect class="boxBrand" x="710" y="62" width="250" height="12"/>
+      <text x="835" y="62" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">③ Alerts  ·  警告</text>
+      <!-- weather -->
+      <rect x="726" y="90" width="218" height="46" rx="8" fill="#fffbeb" stroke="#fcd34d"/>
+      <rect x="726" y="90" width="4" height="46" fill="#f59e0b"/>
+      <text x="742" y="108" fill="#111827" font-size="11" font-weight="700">⚠ Amber Rainstorm</text>
+      <text x="742" y="124" fill="#6b7280" font-size="9">Heavy rain · flooding risk</text>
+      <!-- eta mini -->
+      <rect x="726" y="146" width="218" height="30" rx="8" fill="#fff" stroke="#e5e7eb"/>
+      <text x="738" y="165" fill="#111827" font-size="11" font-weight="600">1 → Central</text>
+      <text x="938" y="165" text-anchor="end" fill="#1d4ed8" font-size="11" font-weight="700">4 min</text>
+      <!-- incident high -->
+      <rect x="726" y="186" width="218" height="42" rx="8" fill="#fef2f2" stroke="#fca5a5"/>
+      <rect x="726" y="186" width="4" height="42" fill="#ef4444"/>
+      <text x="742" y="203" fill="#111827" font-size="10" font-weight="700">⚠ Road closure</text>
+      <text x="742" y="218" fill="#6b7280" font-size="9">HIGH · Cheung Sha Wan Rd</text>
+      <rect x="726" y="236" width="218" height="42" rx="8" fill="#fffbeb" stroke="#fcd34d"/>
+      <rect x="726" y="236" width="4" height="42" fill="#f59e0b"/>
+      <text x="742" y="253" fill="#111827" font-size="10" font-weight="700">⚠ Slow traffic</text>
+      <text x="742" y="268" fill="#6b7280" font-size="9">MED · Lai Chi Kok Bridge</text>
+      <rect x="726" y="300" width="218" height="28" rx="8" fill="#1d4ed8"/>
+      <text x="835" y="318" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">← Back to search</text>
+    </g>
+
+    <!-- edges: primary flow -->
+    <path class="edgeB" d="M290,150 C332,150 332,150 373,150" marker-end="url(#arrowB)"/>
+    <text x="332" y="142" text-anchor="middle" fill="#1d4ed8" font-size="10" font-weight="600">pick</text>
+
+    <path class="edge" d="M625,150 C668,150 668,150 708,150" marker-end="url(#arrow)"/>
+    <text x="667" y="142" text-anchor="middle" fill="#6b7280" font-size="10">alerts inline</text>
+
+    <!-- back edges (dashed) -->
+    <path class="edge" d="M375,330 C300,355 300,355 290,330" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+    <path class="edge" d="M710,330 C640,355 640,355 625,330" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+    <text x="332" y="362" text-anchor="middle" fill="#6b7280" font-size="10">← back (bottom bar)</text>
+    <text x="667" y="362" text-anchor="middle" fill="#6b7280" font-size="10">← back</text>
+
+    <!-- ===== BRANCH: language toggle (global) ===== -->
+    <g>
+      <rect x="40" y="430" width="250" height="150" rx="14" fill="#fff" stroke="#d1d5db"/>
+      <text x="56" y="458" class="lbl">Language switch (global)</text>
+      <text x="56" y="478" class="sm">Top-bar EN / 繁 / 简 · persists</text>
+      <rect x="56" y="494" width="44" height="30" rx="6" fill="#1d4ed8"/>
+      <text x="78" y="513" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">EN</text>
+      <rect x="108" y="494" width="44" height="30" rx="6" fill="#eff6ff" stroke="#bfdbfe"/>
+      <text x="130" y="513" text-anchor="middle" fill="#1d4ed8" font-size="11" font-weight="700">繁</text>
+      <rect x="160" y="494" width="44" height="30" rx="6" fill="#eff6ff" stroke="#bfdbfe"/>
+      <text x="182" y="513" text-anchor="middle" fill="#1d4ed8" font-size="11" font-weight="700">简</text>
+      <text x="56" y="548" class="cap">Affects all human-readable text</text>
+      <text x="56" y="564" class="cap">(en / tc / sc) across every screen.</text>
+    </g>
+
+    <!-- ===== BRANCH: error / empty ===== -->
+    <g>
+      <rect x="375" y="430" width="250" height="150" rx="14" fill="#fff" stroke="#d1d5db"/>
+      <text x="391" y="458" class="lbl">Empty / Error states</text>
+      <rect x="391" y="472" width="218" height="40" rx="8" fill="#fef2f2" stroke="#fecaca"/>
+      <text x="403" y="490" fill="#991b1b" font-size="11" font-weight="600">No upcoming departures</text>
+      <text x="403" y="505" fill="#9ca3af" font-size="9">暫無班次</text>
+      <rect x="391" y="520" width="218" height="40" rx="8" fill="#f9fafb" stroke="#e5e7eb"/>
+      <text x="403" y="538" fill="#b91c1c" font-size="11" font-weight="600">Failed to load data</text>
+      <text x="403" y="553" fill="#9ca3af" font-size="9">retry handled by client</text>
+    </g>
+
+    <!-- ===== BRANCH: demo banner ===== -->
+    <g>
+      <rect x="710" y="430" width="250" height="150" rx="14" fill="#fff" stroke="#d1d5db"/>
+      <text x="726" y="458" class="lbl">Offline / Demo mode</text>
+      <rect x="726" y="472" width="218" height="34" rx="8" fill="#fffbeb" stroke="#fcd34d"/>
+      <text x="738" y="493" fill="#92400e" font-size="11" font-weight="600">Demo data (backend down)</text>
+      <text x="726" y="528" class="sm">Banner reserves fixed height</text>
+      <text x="726" y="544" class="sm">so its appearance never shifts</text>
+      <text x="726" y="560" class="sm">layout (CLS = 0).</text>
+    </g>
+
+    <!-- connectors into the branch boxes -->
+    <path class="edge" d="M165,340 C165,380 165,400 165,428" marker-end="url(#arrow)"/>
+    <path class="edge" d="M500,340 C500,380 500,400 500,428" marker-end="url(#arrow)"/>
+    <path class="edge" d="M835,340 C835,380 835,400 835,428" marker-end="url(#arrow)"/>
+    <text x="500" y="392" text-anchor="middle" fill="#6b7280" font-size="10">cross-cutting states</text>
+  </svg>
+
+  <div class="legend">
+    <span><i style="background:#1d4ed8"></i> Primary navigation edge</span>
+    <span><i style="background:#9ca3af"></i> Secondary / back edge</span>
+    <span><i style="background:#fcd34d"></i> Weather warning</span>
+    <span><i style="background:#ef4444"></i> High-relevance incident</span>
+    <span><i style="background:#eff6ff;border:1px solid #bfdbfe"></i> Route/Stop chip</span>
+  </div>
+
+  <div class="note">
+    <b>Design rationale.</b> The app is a two-screen mobile flow. ① <b>Search</b> offers debounced
+    server-backed autocomplete over routes <i>and</i> stops (with quick-pick chips for the four
+    most common routes) and routes the user to either a route-scoped board or a stop board.
+    ② <b>Arrivals</b> is the combined stop/route screen: a brand header, the live ETA list
+    (pulsing “Due / N min” pills), and — when present — inline <b>weather warnings</b> and
+    <b>traffic incidents</b> ranked by relevance (HIGH/MED/LOW). ③ <b>Alerts</b> are not a
+    separate screen; they render in-place above/below the ETA list so a rider sees context
+    without leaving the board. A thumb-reachable “Back to search” bar is pinned to the bottom
+    of every results view for single-handed use. Language (EN/繁/简) is global via the top bar.
+    Empty, error, and offline/demo states share the same reserved-height slots to keep CLS at 0.
+  </div>
+</div>
+</body>
+</html>

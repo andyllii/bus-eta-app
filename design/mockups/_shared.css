@@ -1,0 +1,100 @@
+/* Shared presentation layer for the Bus ETA mockups.
+   Production visuals come from the real compiled Tailwind CSS
+   (../../web-app/dist/assets/index-*.css) + the app's index.css.
+   This file only adds: the phone device frame + iOS-style status bar,
+   which the running web-app does not render (it's a full-bleed PWA column). */
+
+:root {
+  --brand: #1d4ed8;
+  --brand-dark: #1e3a8a;
+  --gray-50: #f9fafb;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #e5e7eb;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  padding: 32px;
+  justify-content: center;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Phone device frame (390 x 844 = iPhone 12/13/14) ---- */
+.phone {
+  width: 390px;
+  height: auto;
+  min-height: 844px;
+  background: #111827;
+  border-radius: 54px;
+  padding: 14px;
+  box-shadow: 0 30px 60px rgba(0,0,0,.35), inset 0 0 0 2px #000;
+  position: relative;
+  flex: 0 0 auto;
+}
+.phone::after { /* side buttons */
+  content: "";
+  position: absolute;
+  right: -3px; top: 180px;
+  width: 3px; height: 64px;
+  background: #1f2937; border-radius: 2px;
+}
+.screen {
+  width: 100%;
+  min-height: 816px;
+  background: var(--gray-50);
+  border-radius: 42px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- iOS status bar ---- */
+.statusbar {
+  height: 44px;
+  flex: 0 0 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 26px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  background: var(--gray-50);
+}
+.statusbar .right { display: flex; align-items: center; gap: 6px; }
+.statusbar svg { display: block; }
+
+/* Notch */
+.notch {
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 150px; height: 30px;
+  background: #111827;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+  z-index: 30;
+}
+
+/* App scroll area sits below the status bar */
+.app-scroll {
+  flex: 1 1 auto;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Caption label under each phone (for the spec doc) */
+.caption { display: none; }
+
+/* Mini legend used inside the flow diagram */
+.legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: #374151; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }

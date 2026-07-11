@@ -1,0 +1,39 @@
+{
+  "type": "ETA",
+  "version": "2.0",
+  "generated_timestamp": "2026-07-11T03:01:02+08:00",
+  "data": [
+    {
+      "co": "CTB",
+      "route": "1",
+      "dir": "O",
+      "seq": 1,
+      "stop": "001027",
+      "dest_tc": "跑馬地 (上)",
+      "dest_sc": "跑马地 (上)",
+      "dest_en": "HAPPY VALLEY (UPPER)",
+      "eta_seq": 1,
+      "eta": "2026-07-11T03:09:02+08:00",
+      "rmk_tc": "",
+      "rmk_sc": "",
+      "rmk_en": "",
+      "data_timestamp": "2026-07-11T03:01:02+08:00"
+    },
+    {
+      "co": "CTB",
+      "route": "1",
+      "dir": "O",
+      "seq": 1,
+      "stop": "001027",
+      "dest_tc": "跑馬地 (上)",
+      "dest_sc": "跑马地 (上)",
+      "dest_en": "HAPPY VALLEY (UPPER)",
+      "eta_seq": 2,
+      "eta": null,
+      "rmk_tc": " scheduled",
+      "rmk_sc": " scheduled",
+      "rmk_en": " scheduled",
+      "data_timestamp": "2026-07-11T03:01:02+08:00"
+    }
+  ]
+}

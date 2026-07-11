@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  /* Respect notches on mobile devices. */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Cap the usable width on tablets/desktops so it reads like a phone app. The
+   shell is full-bleed gray; the app column is centred via the inner wrapper in
+   main.tsx (w-full max-w-app mx-auto), NOT via flex on #root — a flex root lets
+   the app column shrink-to-fit its content on first paint, which shifts width
+   and produces a layout-shift (CLS) violation. A definite width on the column
+   keeps it stable from first paint. */
+html,
+body,
+#root {
+  background-color: #f9fafb; /* gray-50, matches the app column */
+}
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Limit multi-line clamp where used. */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* --- Mobile interaction polish -------------------------------------------
+ * 1. Remove the 300ms tap delay and the grey flash on tap (cleaner taps).
+ * 2. Prevent the page from rubber-banding behind the sticky bottom nav.
+ * 3. Honour the user's reduced-motion preference: kill the ETA "pulse" and
+ *    other transitions so motion-sensitive users aren't disturbed.
+ * ----------------------------------------------------------------------- */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+[role="button"],
+input {
+  /* The app handles taps via React onClick; tell the browser not to wait
+     for a second tap / scroll gesture before firing. */
+  touch-action: manipulation;
+}
+
+#root {
+  overscroll-behavior-y: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Specifically silence the live-ETA ping so it doesn't draw the eye. */
+  .animate-ping {
+    animation: none !important;
+  }
+}
