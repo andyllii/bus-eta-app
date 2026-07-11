@@ -1,0 +1,1 @@
+{"root":["./src/i18n.ts","./src/lang-context.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/TopBar.tsx","./src/components/icons.tsx","./src/screens/ResultsScreen.tsx","./src/screens/SearchScreen.tsx","./src/services/api.ts","./src/services/mock.ts","./src/services/types.ts","./vite.config.ts"],"version":"5.9.3"}
